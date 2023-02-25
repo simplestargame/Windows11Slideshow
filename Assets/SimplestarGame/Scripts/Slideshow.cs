@@ -51,7 +51,6 @@ namespace SimplestarGame
         void OnStop()
         {
             this.isPlay = !this.isPlay;
-            this.ShowUI(false);
         }
 
         void OnStart()
@@ -62,7 +61,6 @@ namespace SimplestarGame
                 this.coroutine = null;
             }
             this.coroutine = StartCoroutine(this.CoChangeImage());
-            this.ShowUI(false);
         }
 
         void OnDestroy()
@@ -229,8 +227,19 @@ namespace SimplestarGame
             var buttonPos = this.windowFullscreenButton.transform.position;
             if (100 > Vector3.Distance(pos, buttonPos))
             {
-                this.ShowUI(true);
+                if (null != this.coroutine2)
+                {
+                    StopCoroutine(this.coroutine2);
+                }
+                this.coroutine2 = StartCoroutine(this.CoHideUI());
             }
+        }
+
+        IEnumerator CoHideUI()
+        {
+            this.ShowUI(true);
+            yield return new WaitForSeconds(5f);
+            this.ShowUI(false);
         }
 
         void ShowUI(bool show)
@@ -247,6 +256,7 @@ namespace SimplestarGame
 
         const string FOLDER_PATH = "folderPath";
         Coroutine coroutine = null;
+        Coroutine coroutine2 = null;
         int[] indices;
         bool isShaffle = false;
         bool isPlay = false;
