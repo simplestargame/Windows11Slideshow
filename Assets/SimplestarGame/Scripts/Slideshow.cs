@@ -216,12 +216,8 @@ namespace SimplestarGame
             {
                 if (Screen.fullScreen)
                 {
-                    Screen.fullScreen = false;
+                    this.OnWindowFullscreen();
                 }
-            }
-            if (this.folderPath.gameObject.activeSelf)
-            {
-                return;
             }
             var pos = Input.mousePosition;
             var buttonPos = this.windowFullscreenButton.transform.position;
