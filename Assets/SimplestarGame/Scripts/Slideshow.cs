@@ -256,14 +256,14 @@ namespace SimplestarGame
 
             this.totalLow += low;
             this.frameCount++;
-            if (this.frameCount == 60)
+            if (this.frameCount == 30)
             {
                 this.averageLow = this.totalLow / this.frameCount;
                 this.frameCount = 0;
                 this.totalLow = 0f;
             }
 
-            this.smooth = Mathf.SmoothDamp(this.smooth, 1 + Mathf.Clamp(low, -0.1f, 0.1f), ref this.smoothVelocity, Time.deltaTime * 100f);
+            this.smooth = Mathf.SmoothDamp(this.smooth, 1 + Mathf.Clamp(low, -0.1f, 0.1f), ref this.smoothVelocity, Time.deltaTime * 5f);
             if (this.useAudio)
             {
                 this.rawImage.transform.localScale = Vector3.one * this.smooth;
