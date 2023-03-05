@@ -319,15 +319,59 @@ namespace SimplestarGame
 
         void Update()
         {
-            if (Input.GetKeyDown(KeyCode.LeftArrow))
+            this.pauseCoolDown -= Time.deltaTime;
+            if (Input.GetKey(KeyCode.LeftArrow))
             {
-                this.index--;
-                this.ShowNextImage();
+                switch (this.mode)
+                {
+                    case Mode.Video:
+                        if (this.videoPlayer.isPaused)
+                        {
+                            this.videoPlayerTime = Mathf.Max((float)(this.videoPlayerTime - 0.017f), 0f);
+                            this.videoPlayer.time = this.videoPlayerTime;
+                            return;
+                        }
+                        break;
+                }
+                if (Input.GetKeyDown(KeyCode.LeftArrow))
+                {
+                    if (0 > this.pauseCoolDown)
+                    {
+                        this.index--;
+                        this.ShowNextImage();
+                    }
+                    else
+                    {
+                        this.videoPlayer.Pause();
+                    }
+                }
             }
-            if (Input.GetKeyDown(KeyCode.RightArrow))
+            
+            if (Input.GetKey(KeyCode.RightArrow))
             {
-                this.index++;
-                this.ShowNextImage();
+                switch (this.mode)
+                {
+                    case Mode.Video:
+                        if (this.videoPlayer.isPaused)
+                        {
+                            this.videoPlayerTime = Mathf.Min((float)(this.videoPlayerTime + 0.017f), (float)videoPlayer.length);
+                            this.videoPlayer.time = this.videoPlayerTime;
+                            return;
+                        }
+                        break;
+                }
+                if (Input.GetKeyDown(KeyCode.RightArrow))
+                {
+                    if (0 > this.pauseCoolDown)
+                    {
+                        this.index++;
+                        this.ShowNextImage();
+                    }
+                    else
+                    {
+                        this.videoPlayer.Pause();
+                    }
+                }
             }
             if (Input.GetKeyDown(KeyCode.UpArrow))
             {
@@ -340,6 +384,7 @@ namespace SimplestarGame
                         if (!this.videoPlayer.isPlaying)
                         {
                             this.videoPlayer.Play();
+                            this.pauseCoolDown = 5f;
                         }
                         break;
                 }
@@ -355,6 +400,8 @@ namespace SimplestarGame
                         if (this.videoPlayer.isPlaying)
                         {
                             this.videoPlayer.Pause();
+                            this.videoPlayerTime = this.videoPlayer.time;
+                            this.pauseCoolDown = 5f;
                         }
                         break;
                 }
@@ -370,20 +417,38 @@ namespace SimplestarGame
                         if (this.videoPlayer.isPlaying)
                         {
                             this.videoPlayer.Pause();
+                            this.videoPlayerTime = this.videoPlayer.time;
+                            this.pauseCoolDown = 5f;
                         }
                         else
                         {
                             this.videoPlayer.Play();
+                            this.pauseCoolDown = 5f;
                         }
                         break;
                 }
             }
             if (Input.GetKeyDown(KeyCode.Escape))
             {
-                if (Screen.fullScreen)
-                {
-                    this.OnWindowFullscreen();
-                }
+                this.OnWindowFullscreen();
+            }
+            if (Input.GetKeyDown(KeyCode.A))
+            {
+                this.videoPlayerTime = Mathf.Max((float)(this.videoPlayer.time - 5f), 0f);
+                this.videoPlayer.time = this.videoPlayerTime;
+            }
+            if (Input.GetKeyDown(KeyCode.D))
+            {
+                this.videoPlayerTime = Mathf.Min((float)(this.videoPlayer.time + 5f), (float)videoPlayer.length);
+                this.videoPlayer.time = this.videoPlayerTime;
+            }
+            if (Input.GetKeyDown(KeyCode.W))
+            {
+                this.OnStart();
+            }
+            if (Input.GetKeyDown(KeyCode.S))
+            {
+                this.OnStop();
             }
             var pos = Input.mousePosition;
             var buttonPos = this.windowFullscreenButton.transform.position;
@@ -494,5 +559,7 @@ namespace SimplestarGame
         int frameCount = 0;
         float totalLow = 0;
         float averageLow = 0;
+        double videoPlayerTime;
+        float pauseCoolDown;
     }
 }
