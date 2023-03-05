@@ -2,9 +2,11 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.Video;
 
 namespace SimplestarGame
 {
@@ -17,11 +19,14 @@ namespace SimplestarGame
         [SerializeField] RawImage rawImageBack;
         [SerializeField] Button startButton;
         [SerializeField] Button stopButton;
-        [SerializeField] Button shaffleButton;
+        [SerializeField] Toggle toggleShaffle;
         [SerializeField] Button timeDownButton;
         [SerializeField] Button timeUpButton;
         [SerializeField] Button windowFullscreenButton;
         [SerializeField] Toggle toggleUseAudio;
+        [SerializeField] Slider sliderVolume;
+        [SerializeField] Toggle toggleTopDirectoryOnly;
+        [SerializeField] VideoPlayer videoPlayer;
 
         void Start()
         {
@@ -33,20 +38,71 @@ namespace SimplestarGame
             {
                 this.folderPath.text = Environment.GetFolderPath(Environment.SpecialFolder.MyPictures);
             }
+            
             this.windowFullscreenButton.onClick.AddListener(this.OnWindowFullscreen);
             this.startButton.onClick.AddListener(this.OnStart);
             this.stopButton.onClick.AddListener(this.OnStop);
-            this.shaffleButton.onClick.AddListener(this.OnShaffle);
+            this.toggleShaffle.onValueChanged.AddListener(this.OnShaffle);
             this.timeDownButton.onClick.AddListener(this.OnTimeDown);
             this.timeUpButton.onClick.AddListener(this.OnTimeUp);
             this.toggleUseAudio.onValueChanged.AddListener(this.OnUseAudio);
+            this.toggleTopDirectoryOnly.onValueChanged.AddListener(this.OnTopDirectoryOnly);
+            this.sliderVolume.onValueChanged.AddListener(this.OnChangeVolume);
+            if (PlayerPrefs.HasKey(Slideshow.AUDIO_VOLUME))
+            {
+                this.sliderVolume.value = PlayerPrefs.GetFloat(Slideshow.AUDIO_VOLUME);
+            }
+            if (PlayerPrefs.HasKey(Slideshow.SHAFFLE))
+            {
+                this.shaffle = 1 == PlayerPrefs.GetInt(Slideshow.SHAFFLE);
+                this.toggleShaffle.isOn = this.shaffle;
+            }
+            if (PlayerPrefs.HasKey(Slideshow.TOP_DIR_ONLY))
+            {
+                this.toggleTopDirectoryOnly.isOn = 1 == PlayerPrefs.GetInt(Slideshow.TOP_DIR_ONLY);
+            }
+            if (PlayerPrefs.HasKey(Slideshow.USE_AUDIO))
+            {
+                this.toggleUseAudio.isOn = 1 == PlayerPrefs.GetInt(Slideshow.USE_AUDIO);
+            }
 
             this.audio = this.GetComponent<AudioSource>();
             this.audio.clip = Microphone.Start(null, true, 999, 44100);
             this.audio.loop = true;
-            // this.audio.volume = 0;
             while (!(Microphone.GetPosition(null) > 0)) { }
             this.audio.Play();
+
+            this.videoPlayer.source = VideoSource.Url;
+            this.videoPlayer.prepareCompleted += this.OnVideoPrepareCompleted;
+            this.videoPlayer.loopPointReached += OnLoopPointReached;
+        }
+
+        private void OnChangeVolume(float volume)
+        {
+            PlayerPrefs.SetFloat(Slideshow.AUDIO_VOLUME, volume);
+            this.videoPlayer.SetDirectAudioVolume(0, volume);
+        }
+
+        void OnLoopPointReached(VideoPlayer source)
+        {
+            if (this.isPlay)
+            {
+                this.index++;
+                this.ShowNextImage();
+            }
+        }
+
+        void OnVideoPrepareCompleted(VideoPlayer source)
+        {
+            float scale = Screen.height / (float)source.texture.height;
+            var texture = new RenderTexture(Mathf.RoundToInt(source.texture.width * scale), Mathf.RoundToInt(source.texture.height * scale), 4);
+            texture.filterMode = FilterMode.Trilinear;
+            texture.wrapMode = TextureWrapMode.Clamp;
+            this.videoPlayer.targetTexture = texture;
+            Destroy(this.rawImage.texture);
+            this.rawImage.texture = texture;
+            this.rawImageBack.texture = texture;
+            this.rawImage.SetNativeSize();
         }
 
         void OnWindowFullscreen()
@@ -59,7 +115,11 @@ namespace SimplestarGame
 
         void OnStop()
         {
-            this.isPlay = !this.isPlay;
+            this.isPlay = false;
+            if (this.mode == Mode.Video)
+            {
+                this.videoPlayer.Pause();
+            }
         }
 
         void OnStart()
@@ -108,18 +168,31 @@ namespace SimplestarGame
             ascii.GetChars(asciiBytes, 0, asciiBytes.Length, asciiChars, 0);
             var di = new DirectoryInfo(this.folderPath.text);
             this.files.Clear();
-            this.files.AddRange(di.GetFiles("*.jpg", SearchOption.TopDirectoryOnly));
-            this.files.AddRange(di.GetFiles("*.png", SearchOption.TopDirectoryOnly));
+
+            string[] imageExts = { ".jpg", ".png", ".gif", ".bmp" };
+            foreach (var imageExt in imageExts)
+            {
+                this.files.AddRange(di.GetFiles("*" + imageExt, this.searchOption));
+            }
+            string[] videoExts = { ".mp4", ".avi", ".mov", ".wmv" };
+            foreach (var videoExt in videoExts)
+            {
+                this.files.AddRange(di.GetFiles("*" + videoExt, this.searchOption));
+            }
+            
             this.indices = new int[this.files.Count];
             for (int i = 0; i < this.indices.Length; i++)
             {
                 this.indices[i] = i;
             }
+            if (this.shaffle)
+            {
+                this.ShaffleIndices();
+            }
             this.index = 0;
             this.ShowNextImage();
             while (true)
             {
-
                 if (float.TryParse(this.pageTime.text, out float waitTime))
                 {
                     waitTime = Mathf.Clamp(waitTime, 1f, 180f);
@@ -131,8 +204,11 @@ namespace SimplestarGame
                 yield return new WaitForSeconds(waitTime);
                 if (this.isPlay)
                 {
-                    this.index++;
-                    this.ShowNextImage();
+                    if (this.mode == Mode.Image)
+                    {
+                        this.index++;
+                        this.ShowNextImage();
+                    }
                 }
             }
         }
@@ -153,22 +229,9 @@ namespace SimplestarGame
             }
         }
 
-        void OnShaffle()
-        {
-            if (null == this.indices)
-            {
-                return;
-            }
-            for (int i = 0; i < this.indices.Length; i++)
-            {
-                this.indices[i] = i;
-            }
-            Shuffle(this.indices);
-        }
-
         void ShowNextImage()
         {
-            if (null == this.indices)
+            if (null == this.indices || 0 == this.files.Count)
             {
                 return;
             }
@@ -182,15 +245,35 @@ namespace SimplestarGame
             }
             int showIndex = this.indices[this.index];
             var file = this.files[showIndex];
-            var texture = new Texture2D(100, 100);
-            texture.requestedMipmapLevel = 0;
-            texture.LoadImage(File.ReadAllBytes(file.FullName));
-            texture.filterMode = FilterMode.Trilinear;
-            texture.wrapMode = TextureWrapMode.Clamp;
-            Destroy(this.rawImage.texture);
-            this.rawImage.texture = texture;
-            this.rawImageBack.texture = texture;
-            this.rawImage.SetNativeSize();
+
+            string ext = file.Extension;
+
+            string[] videoExts = { ".mp4", ".avi", ".mov", ".wmv" };
+            string[] imageExts = { ".jpg", ".png", ".gif", ".bmp" };
+
+            
+            if (videoExts.Contains(ext))
+            {
+                this.mode = Mode.Video;
+                this.videoPlayer.url = file.FullName;
+                this.videoPlayer.Prepare();
+                this.videoPlayer.SetDirectAudioVolume(0, this.useAudio ? 1 : 0);
+                this.videoPlayer.Play();
+                this.rawImage.transform.localScale = Vector3.one;
+            }
+            else if (imageExts.Contains(ext))
+            {
+                this.mode = Mode.Image;
+                var texture = new Texture2D(100, 100);
+                texture.requestedMipmapLevel = 0;
+                texture.LoadImage(File.ReadAllBytes(file.FullName));
+                texture.filterMode = FilterMode.Trilinear;
+                texture.wrapMode = TextureWrapMode.Clamp;
+                Destroy(this.rawImage.texture);
+                this.rawImage.texture = texture;
+                this.rawImageBack.texture = texture;
+                this.rawImage.SetNativeSize();
+            }
             var originalSize = this.rawImage.rectTransform.sizeDelta;
             this.rawImage.rectTransform.sizeDelta = new Vector2(originalSize.x * Screen.height / originalSize.y, Screen.height);
             this.rawImage.rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
@@ -201,6 +284,36 @@ namespace SimplestarGame
         void OnUseAudio(bool useAudio)
         {
             this.useAudio = useAudio;
+            PlayerPrefs.SetInt(Slideshow.USE_AUDIO, useAudio ? 1 : 0);
+        }
+
+        void OnTopDirectoryOnly(bool topDirectoryOnly)
+        {
+            this.searchOption = topDirectoryOnly ? SearchOption.TopDirectoryOnly : SearchOption.AllDirectories;
+            PlayerPrefs.SetInt(Slideshow.TOP_DIR_ONLY, topDirectoryOnly ? 1 : 0);
+        }
+
+        void OnShaffle(bool shaffle)
+        {
+            this.shaffle = shaffle;
+            PlayerPrefs.SetInt(Slideshow.SHAFFLE, shaffle ? 1 : 0);
+            if (this.shaffle)
+            {
+                this.ShaffleIndices();
+            }
+        }
+
+        void ShaffleIndices()
+        {
+            if (null == this.indices)
+            {
+                return;
+            }
+            for (int i = 0; i < this.indices.Length; i++)
+            {
+                this.indices[i] = i;
+            }
+            Shuffle(this.indices);
         }
 
         void Update()
@@ -217,15 +330,52 @@ namespace SimplestarGame
             }
             if (Input.GetKeyDown(KeyCode.UpArrow))
             {
-                this.isPlay = false;
+                switch (this.mode)
+                {
+                    case Mode.Image:
+                        this.isPlay = false;
+                        break;
+                    case Mode.Video:
+                        if (!this.videoPlayer.isPlaying)
+                        {
+                            this.videoPlayer.Play();
+                        }
+                        break;
+                }
             }
             if (Input.GetKeyDown(KeyCode.DownArrow))
             {
-                this.isPlay = true;
+                switch (this.mode)
+                {
+                    case Mode.Image:
+                        this.isPlay = true;
+                        break;
+                    case Mode.Video:
+                        if (this.videoPlayer.isPlaying)
+                        {
+                            this.videoPlayer.Pause();
+                        }
+                        break;
+                }
             }
             if (Input.GetKeyDown(KeyCode.Space))
             {
-                this.isPlay = !this.isPlay;
+                switch (this.mode)
+                {
+                    case Mode.Image:
+                        this.isPlay = !this.isPlay;
+                        break;
+                    case Mode.Video:
+                        if (this.videoPlayer.isPlaying)
+                        {
+                            this.videoPlayer.Pause();
+                        }
+                        else
+                        {
+                            this.videoPlayer.Play();
+                        }
+                        break;
+                }
             }
             if (Input.GetKeyDown(KeyCode.Escape))
             {
@@ -245,45 +395,47 @@ namespace SimplestarGame
                 this.coroutine2 = StartCoroutine(this.CoHideUI());
             }
 
-            this.audio.GetSpectrumData(this.samples, 0, FFTWindow.BlackmanHarris);
-            var deltaFreq = AudioSettings.outputSampleRate / this.resolution;
-            float low = 0f;
-            for (var i = 0; i < this.resolution; ++i)
+            if(this.mode == Mode.Image)
             {
-                var freq = deltaFreq * i;
-                if (freq <= this.lowFreqThreshold) low += this.samples[i];
-            }
-
-            this.totalLow += low;
-            this.frameCount++;
-            if (this.frameCount == 30)
-            {
-                this.averageLow = this.totalLow / this.frameCount;
-                this.frameCount = 0;
-                this.totalLow = 0f;
-            }
-
-            this.smooth = Mathf.SmoothDamp(this.smooth, 1 + Mathf.Clamp(low, -0.1f, 0.1f), ref this.smoothVelocity, Time.deltaTime * 5f);
-            if (this.useAudio)
-            {
-                this.rawImage.transform.localScale = Vector3.one * this.smooth;
-                if (!this.isPlay && this.coolTime < 0 && this.averageLow * 1.5f < low)
+                this.audio.GetSpectrumData(this.samples, 0, FFTWindow.BlackmanHarris);
+                var deltaFreq = AudioSettings.outputSampleRate / this.resolution;
+                float low = 0f;
+                for (var i = 0; i < this.resolution; ++i)
                 {
-                    this.index++;
-                    this.ShowNextImage();
-                    if (float.TryParse(this.pageTime.text, out float waitTime))
-                    {
-                        waitTime = Mathf.Clamp(waitTime, 1f, 180f);
-                    }
-                    else
-                    {
-                        waitTime = 5f;
-                    }
-                    this.coolTime = waitTime;
-                    this.smoothVelocity = 0;
-                    this.smooth = 1;
+                    var freq = deltaFreq * i;
+                    if (freq <= this.lowFreqThreshold) low += this.samples[i];
                 }
-                this.coolTime -= Time.deltaTime;
+
+                this.totalLow += low;
+                this.frameCount++;
+                if (this.frameCount == 30)
+                {
+                    this.averageLow = this.totalLow / this.frameCount;
+                    this.frameCount = 0;
+                    this.totalLow = 0f;
+                }
+                this.smooth = Mathf.SmoothDamp(this.smooth, 1 + Mathf.Clamp(low, -0.1f, 0.1f), ref this.smoothVelocity, Time.deltaTime * 5f);
+                if (this.useAudio)
+                {
+                    this.rawImage.transform.localScale = Vector3.one * this.smooth;
+                    if (!this.isPlay && this.coolTime < 0 && this.averageLow * 1.5f < low)
+                    {
+                        this.index++;
+                        this.ShowNextImage();
+                        if (float.TryParse(this.pageTime.text, out float waitTime))
+                        {
+                            waitTime = Mathf.Clamp(waitTime, 1f, 180f);
+                        }
+                        else
+                        {
+                            waitTime = 5f;
+                        }
+                        this.coolTime = waitTime;
+                        this.smoothVelocity = 0;
+                        this.smooth = 1;
+                    }
+                    this.coolTime -= Time.deltaTime;
+                }
             }
         }
 
@@ -299,15 +451,21 @@ namespace SimplestarGame
             this.startButton.gameObject.SetActive(show);
             this.stopButton.gameObject.SetActive(show);
             this.folderPath.gameObject.SetActive(show);
-            this.shaffleButton.gameObject.SetActive(show);
+            this.toggleShaffle.gameObject.SetActive(show);
             this.timeUpButton.gameObject.SetActive(show);
             this.timeDownButton.gameObject.SetActive(show);
             this.pageTime.gameObject.SetActive(show);
             this.windowFullscreenButton.gameObject.SetActive(show);
             this.toggleUseAudio.gameObject.SetActive(show);
+            this.toggleTopDirectoryOnly.gameObject.SetActive(show);
+            this.sliderVolume.gameObject.transform.parent.gameObject.SetActive(show);
         }
 
         const string FOLDER_PATH = "folderPath";
+        const string AUDIO_VOLUME = "audioVolume";
+        const string USE_AUDIO = "useAudio";
+        const string SHAFFLE = "shaffle";
+        const string TOP_DIR_ONLY = "topDirOnly";
         Coroutine coroutine = null;
         Coroutine coroutine2 = null;
         int[] indices;
@@ -316,8 +474,16 @@ namespace SimplestarGame
         List<FileInfo> files = new List<FileInfo>();
         new AudioSource audio;
         float[] samples = new float[1024];
-
+        enum Mode
+        {
+            Image,
+            Video,
+            Max
+        }
+        Mode mode = Mode.Image;
+        SearchOption searchOption = SearchOption.TopDirectoryOnly;
         bool useAudio = true;
+        bool shaffle = false;
         float coolTime = 0;
         float smooth = 1f;
         float smoothVelocity = 0;
