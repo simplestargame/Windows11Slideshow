@@ -27,9 +27,11 @@ namespace SimplestarGame
         [SerializeField] Slider sliderVolume;
         [SerializeField] Toggle toggleTopDirectoryOnly;
         [SerializeField] VideoPlayer videoPlayer;
+        [SerializeField] TMPro.TextMeshProUGUI fpsText;
 
         void Start()
         {
+            Application.targetFrameRate = 60;
             if (PlayerPrefs.HasKey(Slideshow.FOLDER_PATH))
             {
                 this.folderPath.text = PlayerPrefs.GetString(Slideshow.FOLDER_PATH);
@@ -95,7 +97,7 @@ namespace SimplestarGame
         void OnVideoPrepareCompleted(VideoPlayer source)
         {
             float scale = Screen.height / (float)source.texture.height;
-            var texture = new RenderTexture(Mathf.RoundToInt(source.texture.width * scale), Mathf.RoundToInt(source.texture.height * scale), 4);
+            var texture = new RenderTexture(Mathf.RoundToInt(source.texture.width * scale), Mathf.RoundToInt(source.texture.height * scale), 3);
             texture.filterMode = FilterMode.Trilinear;
             texture.wrapMode = TextureWrapMode.Clamp;
             this.videoPlayer.targetTexture = texture;
@@ -458,6 +460,7 @@ namespace SimplestarGame
             this.toggleUseAudio.gameObject.SetActive(show);
             this.toggleTopDirectoryOnly.gameObject.SetActive(show);
             this.sliderVolume.gameObject.transform.parent.gameObject.SetActive(show);
+            this.fpsText.gameObject.transform.parent.gameObject.SetActive(show);
         }
 
         const string FOLDER_PATH = "folderPath";
