@@ -257,7 +257,6 @@ namespace SimplestarGame
                 this.mode = Mode.Video;
                 this.videoPlayer.url = file.FullName;
                 this.videoPlayer.Prepare();
-                this.videoPlayer.SetDirectAudioVolume(0, this.useAudio ? 1 : 0);
                 this.videoPlayer.Play();
                 this.rawImage.transform.localScale = Vector3.one;
             }
