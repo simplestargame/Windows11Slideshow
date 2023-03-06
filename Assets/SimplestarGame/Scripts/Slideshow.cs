@@ -28,6 +28,12 @@ namespace SimplestarGame
         [SerializeField] Toggle toggleTopDirectoryOnly;
         [SerializeField] VideoPlayer videoPlayer;
         [SerializeField] TMPro.TextMeshProUGUI fpsText;
+        [SerializeField] Button prevButton;
+        [SerializeField] Button nextButton;
+        [SerializeField] Button pauseButton;
+        [SerializeField] Button quitButton;
+        [SerializeField] Button skipButton;
+        [SerializeField] Button backButton;
 
         void Start()
         {
@@ -50,6 +56,12 @@ namespace SimplestarGame
             this.toggleUseAudio.onValueChanged.AddListener(this.OnUseAudio);
             this.toggleTopDirectoryOnly.onValueChanged.AddListener(this.OnTopDirectoryOnly);
             this.sliderVolume.onValueChanged.AddListener(this.OnChangeVolume);
+            this.prevButton.onClick.AddListener(this.OnPrev);
+            this.nextButton.onClick.AddListener(this.OnNext);
+            this.pauseButton.onClick.AddListener(this.OnPause);
+            this.quitButton.onClick.AddListener(this.OnQuit);
+            this.skipButton.onClick.AddListener(this.OnSkip);
+            this.backButton.onClick.AddListener(this.OnBack);
             if (PlayerPrefs.HasKey(Slideshow.AUDIO_VOLUME))
             {
                 this.sliderVolume.value = PlayerPrefs.GetFloat(Slideshow.AUDIO_VOLUME);
@@ -79,7 +91,101 @@ namespace SimplestarGame
             this.videoPlayer.loopPointReached += OnLoopPointReached;
         }
 
-        private void OnChangeVolume(float volume)
+        void OnBack()
+        {
+            this.videoPlayerTime = this.videoPlayer.time;
+            this.videoPlayerTime = Mathf.Max((float)(this.videoPlayerTime - 10f), 0f);
+            this.videoPlayer.time = this.videoPlayerTime;
+        }
+
+        void OnSkip()
+        {
+            this.videoPlayerTime = this.videoPlayer.time;
+            this.videoPlayerTime = Mathf.Min((float)(this.videoPlayerTime + 10f), (float)videoPlayer.length);
+            this.videoPlayer.time = this.videoPlayerTime;
+        }
+
+        void OnQuit()
+        {
+#if UNITY_EDITOR
+            UnityEditor.EditorApplication.ExitPlaymode();
+#endif
+            Application.Quit();
+        }
+
+        void OnPause()
+        {
+            switch (this.mode)
+            {
+                case Mode.Image:
+                    this.isPlay = !this.isPlay;
+                    break;
+                case Mode.Video:
+                    if (this.videoPlayer.isPlaying)
+                    {
+                        this.videoPlayer.Pause();
+                        this.videoPlayerTime = this.videoPlayer.time;
+                        this.pauseCoolDown = 5f;
+                    }
+                    else
+                    {
+                        this.videoPlayer.Play();
+                        this.pauseCoolDown = 5f;
+                    }
+                    break;
+            }
+        }
+
+        void OnNext()
+        {
+            switch (this.mode)
+            {
+                case Mode.Video:
+                    if (this.videoPlayer.isPaused)
+                    {
+                        this.videoPlayerTime = Mathf.Min((float)(this.videoPlayerTime + 0.17f), (float)videoPlayer.length);
+                        this.videoPlayer.time = this.videoPlayerTime;
+                        return;
+                    }
+                    break;
+            }
+
+            if (0 > this.pauseCoolDown)
+            {
+                this.index++;
+                this.ShowNextImage();
+            }
+            else
+            {
+                this.videoPlayer.Pause();
+            }
+        }
+
+        void OnPrev()
+        {
+            switch (this.mode)
+            {
+                case Mode.Video:
+                    if (this.videoPlayer.isPaused)
+                    {
+                        this.videoPlayerTime = Mathf.Max((float)(this.videoPlayerTime - 0.17f), 0f);
+                        this.videoPlayer.time = this.videoPlayerTime;
+                        return;
+                    }
+                    break;
+            }
+            if (0 > this.pauseCoolDown)
+            {
+                this.index--;
+                this.ShowNextImage();
+            }
+            else
+            {
+                this.videoPlayer.Pause();
+            }
+        }
+
+        void OnChangeVolume(float volume)
         {
             PlayerPrefs.SetFloat(Slideshow.AUDIO_VOLUME, volume);
             this.videoPlayer.SetDirectAudioVolume(0, volume);
@@ -333,20 +439,19 @@ namespace SimplestarGame
                         }
                         break;
                 }
-                if (Input.GetKeyDown(KeyCode.LeftArrow))
+            }
+            if (Input.GetKeyDown(KeyCode.LeftArrow))
+            {
+                if (0 > this.pauseCoolDown)
                 {
-                    if (0 > this.pauseCoolDown)
-                    {
-                        this.index--;
-                        this.ShowNextImage();
-                    }
-                    else
-                    {
-                        this.videoPlayer.Pause();
-                    }
+                    this.index--;
+                    this.ShowNextImage();
+                }
+                else
+                {
+                    this.videoPlayer.Pause();
                 }
             }
-            
             if (Input.GetKey(KeyCode.RightArrow))
             {
                 switch (this.mode)
@@ -359,18 +464,18 @@ namespace SimplestarGame
                             return;
                         }
                         break;
-                }
-                if (Input.GetKeyDown(KeyCode.RightArrow))
+                }  
+            }
+            if (Input.GetKeyDown(KeyCode.RightArrow))
+            {
+                if (0 > this.pauseCoolDown)
                 {
-                    if (0 > this.pauseCoolDown)
-                    {
-                        this.index++;
-                        this.ShowNextImage();
-                    }
-                    else
-                    {
-                        this.videoPlayer.Pause();
-                    }
+                    this.index++;
+                    this.ShowNextImage();
+                }
+                else
+                {
+                    this.videoPlayer.Pause();
                 }
             }
             if (Input.GetKeyDown(KeyCode.UpArrow))
@@ -450,9 +555,8 @@ namespace SimplestarGame
             {
                 this.OnStop();
             }
-            var pos = Input.mousePosition;
-            var buttonPos = this.windowFullscreenButton.transform.position;
-            if (100 > Vector3.Distance(pos, buttonPos))
+            float headDistance = this.folderPath.transform.position.y - Input.mousePosition.y;
+            if (100 > Mathf.Abs(headDistance))
             {
                 if (null != this.coroutine2)
                 {
@@ -460,8 +564,53 @@ namespace SimplestarGame
                 }
                 this.coroutine2 = StartCoroutine(this.CoHideUI());
             }
+            float prevDistance = Vector3.Distance(this.prevButton.transform.position, Input.mousePosition);
+            if (100 > prevDistance)
+            {
+                if (null != this.coroutine3)
+                {
+                    StopCoroutine(this.coroutine3);
+                }
+                this.coroutine3 = StartCoroutine(this.CoHidePrevUI());
+            }
+            float nextDistance = Vector3.Distance(this.nextButton.transform.position, Input.mousePosition);
+            if (100 > nextDistance)
+            {
+                if (null != this.coroutine4)
+                {
+                    StopCoroutine(this.coroutine4);
+                }
+                this.coroutine4 = StartCoroutine(this.CoHideNextUI());
+            }
+            float pauseDistance = Vector3.Distance(this.pauseButton.transform.position, Input.mousePosition);
+            if (100 > pauseDistance)
+            {
+                if (null != this.coroutine5)
+                {
+                    StopCoroutine(this.coroutine5);
+                }
+                this.coroutine5 = StartCoroutine(this.CoHidePauseUI());
+            }
+            float skipDistance = Vector3.Distance(this.skipButton.transform.position, Input.mousePosition);
+            if (100 > skipDistance)
+            {
+                if (null != this.coroutine6)
+                {
+                    StopCoroutine(this.coroutine6);
+                }
+                this.coroutine6 = StartCoroutine(this.CoHideSkipUI());
+            }
+            float backDistance = Vector3.Distance(this.backButton.transform.position, Input.mousePosition);
+            if (100 > backDistance)
+            {
+                if (null != this.coroutine7)
+                {
+                    StopCoroutine(this.coroutine7);
+                }
+                this.coroutine7 = StartCoroutine(this.CoHideBackUI());
+            }
 
-            if(this.mode == Mode.Image)
+            if (this.mode == Mode.Image)
             {
                 this.audio.GetSpectrumData(this.samples, 0, FFTWindow.BlackmanHarris);
                 var deltaFreq = AudioSettings.outputSampleRate / this.resolution;
@@ -508,8 +657,43 @@ namespace SimplestarGame
         IEnumerator CoHideUI()
         {
             this.ShowUI(true);
-            yield return new WaitForSeconds(5f);
+            yield return new WaitForSeconds(2f);
             this.ShowUI(false);
+        }
+
+        IEnumerator CoHidePrevUI()
+        {
+            this.prevButton.gameObject.SetActive(true);
+            yield return new WaitForSeconds(1f);
+            this.prevButton.gameObject.SetActive(false);
+        }
+
+        IEnumerator CoHideNextUI()
+        {
+            this.nextButton.gameObject.SetActive(true);
+            yield return new WaitForSeconds(1f);
+            this.nextButton.gameObject.SetActive(false);
+        }
+
+        IEnumerator CoHidePauseUI()
+        {
+            this.pauseButton.gameObject.SetActive(true);
+            yield return new WaitForSeconds(1f);
+            this.pauseButton.gameObject.SetActive(false);
+        }
+
+        IEnumerator CoHideSkipUI()
+        {
+            this.skipButton.gameObject.SetActive(true);
+            yield return new WaitForSeconds(1f);
+            this.skipButton.gameObject.SetActive(false);
+        }
+
+        IEnumerator CoHideBackUI()
+        {
+            this.backButton.gameObject.SetActive(true);
+            yield return new WaitForSeconds(1f);
+            this.backButton.gameObject.SetActive(false);
         }
 
         void ShowUI(bool show)
@@ -526,6 +710,7 @@ namespace SimplestarGame
             this.toggleTopDirectoryOnly.gameObject.SetActive(show);
             this.sliderVolume.gameObject.transform.parent.gameObject.SetActive(show);
             this.fpsText.gameObject.transform.parent.gameObject.SetActive(show);
+            this.quitButton.gameObject.SetActive(show);
         }
 
         const string FOLDER_PATH = "folderPath";
@@ -535,6 +720,11 @@ namespace SimplestarGame
         const string TOP_DIR_ONLY = "topDirOnly";
         Coroutine coroutine = null;
         Coroutine coroutine2 = null;
+        Coroutine coroutine3 = null;
+        Coroutine coroutine4 = null;
+        Coroutine coroutine5 = null;
+        Coroutine coroutine6 = null;
+        Coroutine coroutine7 = null;
         int[] indices;
         bool isPlay = false;
         int index = 0;
