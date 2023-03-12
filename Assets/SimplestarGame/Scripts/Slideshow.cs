@@ -86,6 +86,7 @@ namespace SimplestarGame
             while (!(Microphone.GetPosition(null) > 0)) { }
             this.audio.Play();
 
+            this.videoPlayer.skipOnDrop = false;
             this.videoPlayer.source = VideoSource.Url;
             this.videoPlayer.prepareCompleted += this.OnVideoPrepareCompleted;
             this.videoPlayer.loopPointReached += OnLoopPointReached;
