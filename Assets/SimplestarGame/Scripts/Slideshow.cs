@@ -567,7 +567,7 @@ namespace SimplestarGame
                 this.OnStop();
             }
             float headDistance = this.folderPath.transform.position.y - Input.mousePosition.y;
-            if (100 > Mathf.Abs(headDistance))
+            if (100 > Mathf.Abs(headDistance) && 0 < Input.mousePosition.x && Input.mousePosition.x < Screen.width)
             {
                 if (null != this.coroutine2)
                 {
