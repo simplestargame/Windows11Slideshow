@@ -3,6 +3,8 @@ using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.ComTypes;
 using System.Text;
 using UnityEngine;
 using UnityEngine.UI;
@@ -288,7 +290,8 @@ namespace SimplestarGame
             {
                 this.files.AddRange(di.GetFiles("*" + videoExt, this.searchOption));
             }
-            
+            this.files.AddRange(di.GetFiles("*.lnk", this.searchOption));
+
             this.indices = new int[this.files.Count];
             for (int i = 0; i < this.indices.Length; i++)
             {
@@ -357,31 +360,38 @@ namespace SimplestarGame
 
             string ext = file.Extension;
 
+            string targetPath = file.FullName;
+            if (".lnk" == ext)
+            {
+                targetPath = GetTargetPath(file.FullName);
+                ext = Path.GetExtension(targetPath);
+            }
+
             string[] videoExts = { ".mp4", ".avi", ".mov", ".wmv" };
             string[] imageExts = { ".jpg", ".png", ".gif", ".bmp" };
 
-            
             if (videoExts.Contains(ext))
             {
                 this.mode = Mode.Video;
-                this.videoPlayer.url = file.FullName;
+                this.videoPlayer.url = targetPath;
                 this.videoPlayer.Prepare();
                 this.videoPlayer.Play();
                 this.rawImage.transform.localScale = Vector3.one;
+               
             }
             else if (imageExts.Contains(ext))
             {
                 this.mode = Mode.Image;
                 var texture = new Texture2D(100, 100);
                 texture.requestedMipmapLevel = 0;
-                texture.LoadImage(File.ReadAllBytes(file.FullName));
+                texture.LoadImage(File.ReadAllBytes(targetPath));
                 texture.filterMode = FilterMode.Trilinear;
                 texture.wrapMode = TextureWrapMode.Clamp;
                 Destroy(this.rawImage.texture);
                 this.rawImage.texture = texture;
                 this.rawImageBack.texture = texture;
                 this.rawImage.SetNativeSize();
-            }
+            } 
             var originalSize = this.rawImage.rectTransform.sizeDelta;
             this.rawImage.rectTransform.sizeDelta = new Vector2(originalSize.x * Screen.height / originalSize.y, Screen.height);
             this.rawImage.rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
@@ -752,5 +762,52 @@ namespace SimplestarGame
         float averageLow = 0;
         double videoPlayerTime;
         float pauseCoolDown;
+
+        // ショートカットファイルのリンク先のパスを取得するメソッド
+        public static string GetTargetPath(string lnkPath)
+        {
+            // ショートカットファイルを開く
+            var shellLink = (IShellLink)new ShellLink();
+            var persistFile = (IPersistFile)shellLink;
+            persistFile.Load(lnkPath, 0);
+
+            // リンク先のパスを取得する
+            var targetPath = new StringBuilder(260);
+            shellLink.GetPath(targetPath, targetPath.Capacity, IntPtr.Zero, 0);
+
+            // リンク先のパスを返す
+            return targetPath.ToString();
+        }
+
+        // IShellLinkインターフェイスの定義
+        [ComImport]
+        [Guid("000214F9-0000-0000-C000-000000000046")]
+        [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        interface IShellLink
+        {
+            void GetPath([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszFile, int cchMaxPath, IntPtr pfd, uint fFlags);
+            void GetIDList(out IntPtr ppidl);
+            void SetIDList(IntPtr pidl);
+            void GetDescription([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszName, int cchMaxName);
+            void SetDescription([MarshalAs(UnmanagedType.LPWStr)] string pszName);
+            void GetWorkingDirectory([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszDir, int cchMaxPath);
+            void SetWorkingDirectory([MarshalAs(UnmanagedType.LPWStr)] string pszDir);
+            void GetArguments([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszArgs, int cchMaxPath);
+            void SetArguments([MarshalAs(UnmanagedType.LPWStr)] string pszArgs);
+            void GetHotkey(out ushort pwHotkey);
+            void SetHotkey(ushort wHotkey);
+            void GetShowCmd(out int piShowCmd);
+            void SetShowCmd(int iShowCmd);
+            void GetIconLocation([Out, MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszIconPath, int cchIconPath, out int piIcon);
+            void SetIconLocation([MarshalAs(UnmanagedType.LPWStr)] string pszIconPath, int iIcon);
+            void SetRelativePath([MarshalAs(UnmanagedType.LPWStr)] string pszPathRel, uint dwReserved);
+            void Resolve(IntPtr hwnd, uint fFlags);
+            void SetPath([MarshalAs(UnmanagedType.LPWStr)] string pszFile);
+        }
+
+        // ShellLinkクラスの定義
+        [ComImport]
+        [Guid("00021401-0000-0000-C000-000000000046")]
+        class ShellLink { }
     }
 }
