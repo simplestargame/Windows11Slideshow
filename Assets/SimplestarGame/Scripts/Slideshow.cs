@@ -709,6 +709,7 @@ namespace SimplestarGame
 
         void ShowUI(bool show)
         {
+            Cursor.visible = show;
             this.startButton.gameObject.SetActive(show);
             this.stopButton.gameObject.SetActive(show);
             this.folderPath.gameObject.SetActive(show);
