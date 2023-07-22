@@ -772,7 +772,7 @@ namespace SimplestarGame
         double videoPlayerTime;
         float pauseCoolDown;
 
-        RenderTexture[] textures = new RenderTexture[13];
+        RenderTexture[] textures = new RenderTexture[8];
 
         // ショートカットファイルのリンク先のパスを取得するメソッド
         public static string GetTargetPath(string lnkPath)
