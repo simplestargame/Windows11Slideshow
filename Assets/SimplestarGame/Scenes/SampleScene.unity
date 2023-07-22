@@ -5404,7 +5404,7 @@ AudioSource:
   serializedVersion: 4
   OutputAudioMixerGroup: {fileID: 0}
   m_audioClip: {fileID: 0}
-  m_PlayOnAwake: 1
+  m_PlayOnAwake: 0
   m_Volume: 1
   m_Pitch: 1
   Loop: 0
@@ -6626,7 +6626,7 @@ VideoPlayer:
   m_DataSource: 1
   m_TimeUpdateMode: 0
   m_PlaybackSpeed: 1
-  m_AudioOutputMode: 1
+  m_AudioOutputMode: 2
   m_TargetAudioSources:
   - {fileID: 1560586791}
   m_DirectAudioVolumes:
@@ -6638,7 +6638,7 @@ VideoPlayer:
   m_PlayOnAwake: 0
   m_SkipOnDrop: 0
   m_Looping: 0
-  m_WaitForFirstFrame: 1
+  m_WaitForFirstFrame: 0
   m_FrameReadyEventEnabled: 0
   m_VideoShaders: []
 --- !u!1 &2069272975

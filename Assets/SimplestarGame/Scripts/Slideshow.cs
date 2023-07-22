@@ -205,12 +205,16 @@ namespace SimplestarGame
         void OnVideoPrepareCompleted(VideoPlayer source)
         {
             float scale = Screen.height / (float)source.texture.height;
-            var texture = new RenderTexture(Mathf.RoundToInt(source.texture.width * scale), Mathf.RoundToInt(source.texture.height * scale), 3);
-            texture.filterMode = FilterMode.Trilinear;
-            texture.wrapMode = TextureWrapMode.Clamp;
-            this.videoPlayer.targetTexture = texture;
+            this.textures[0] = new RenderTexture(Mathf.RoundToInt(source.texture.width * scale), Mathf.RoundToInt(source.texture.height * scale), 3);
+            this.textures[0].filterMode = FilterMode.Trilinear;
+            this.textures[0].wrapMode = TextureWrapMode.Clamp;
+            this.videoPlayer.targetTexture = this.textures[0];
             Destroy(this.rawImage.texture);
-            this.rawImage.texture = texture;
+            for (int i = 1; i < this.textures.Length; i++)
+            {
+                this.textures[i] = new RenderTexture(this.textures[0]);
+            }
+            this.rawImage.texture = this.textures[this.textures.Length - 1];
             this.rawImage.SetNativeSize();
         }
 
@@ -433,6 +437,13 @@ namespace SimplestarGame
 
         void Update()
         {
+            if (null != this.textures[0])
+            {
+                for (int i = this.textures.Length - 2; i >= 0; i--)
+                {
+                    Graphics.CopyTexture(this.textures[i], this.textures[i+1]);
+                }                
+            }
             this.pauseCoolDown -= Time.deltaTime;
             if (Input.GetKey(KeyCode.LeftArrow))
             {
@@ -760,6 +771,8 @@ namespace SimplestarGame
         float averageLow = 0;
         double videoPlayerTime;
         float pauseCoolDown;
+
+        RenderTexture[] textures = new RenderTexture[13];
 
         // ショートカットファイルのリンク先のパスを取得するメソッド
         public static string GetTargetPath(string lnkPath)
