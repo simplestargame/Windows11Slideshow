@@ -18,7 +18,6 @@ namespace SimplestarGame
         [SerializeField] TMPro.TMP_InputField pageTime;
         [SerializeField] TMPro.TextMeshProUGUI fullScreenText;
         [SerializeField] RawImage rawImage;
-        [SerializeField] RawImage rawImageBack;
         [SerializeField] Button startButton;
         [SerializeField] Button stopButton;
         [SerializeField] Toggle toggleShaffle;
@@ -212,7 +211,6 @@ namespace SimplestarGame
             this.videoPlayer.targetTexture = texture;
             Destroy(this.rawImage.texture);
             this.rawImage.texture = texture;
-            this.rawImageBack.texture = texture;
             this.rawImage.SetNativeSize();
         }
 
@@ -389,7 +387,6 @@ namespace SimplestarGame
                 texture.wrapMode = TextureWrapMode.Clamp;
                 Destroy(this.rawImage.texture);
                 this.rawImage.texture = texture;
-                this.rawImageBack.texture = texture;
                 this.rawImage.SetNativeSize();
             } 
             var originalSize = this.rawImage.rectTransform.sizeDelta;
