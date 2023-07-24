@@ -15,6 +15,7 @@ namespace SimplestarGame
     public class Slideshow : MonoBehaviour
     {
         [SerializeField] TMPro.TMP_InputField folderPath;
+        [SerializeField] Slider sliderTimeline;
         [SerializeField] TMPro.TMP_InputField pageTime;
         [SerializeField] TMPro.TextMeshProUGUI fullScreenText;
         [SerializeField] RawImage rawImage;
@@ -209,6 +210,7 @@ namespace SimplestarGame
             this.textures[0].filterMode = FilterMode.Trilinear;
             this.textures[0].wrapMode = TextureWrapMode.Clamp;
             this.videoPlayer.targetTexture = this.textures[0];
+            this.sliderTimeline.maxValue = (float)this.videoPlayer.length;
             Destroy(this.rawImage.texture);
             for (int i = 1; i < this.textures.Length; i++)
             {
@@ -437,13 +439,19 @@ namespace SimplestarGame
 
         void Update()
         {
-            if (null != this.textures[0])
+            switch (this.mode)
             {
-                for (int i = this.textures.Length - 2; i >= 0; i--)
-                {
-                    Graphics.CopyTexture(this.textures[i], this.textures[i+1]);
-                }                
+                case Mode.Video:
+                    if (null != this.textures[0])
+                    {
+                        for (int i = this.textures.Length - 2; i >= 0; i--)
+                        {
+                            Graphics.CopyTexture(this.textures[i], this.textures[i + 1]);
+                        }   
+                    }
+                    break;
             }
+            
             this.pauseCoolDown -= Time.deltaTime;
             if (Input.GetKey(KeyCode.LeftArrow))
             {
@@ -721,6 +729,7 @@ namespace SimplestarGame
             this.startButton.gameObject.SetActive(show);
             this.stopButton.gameObject.SetActive(show);
             this.folderPath.gameObject.SetActive(show);
+            this.sliderTimeline.gameObject.transform.parent.gameObject.SetActive(show);
             this.toggleShaffle.gameObject.SetActive(show);
             this.timeUpButton.gameObject.SetActive(show);
             this.timeDownButton.gameObject.SetActive(show);
@@ -772,7 +781,7 @@ namespace SimplestarGame
         double videoPlayerTime;
         float pauseCoolDown;
 
-        RenderTexture[] textures = new RenderTexture[8];
+        RenderTexture[] textures = new RenderTexture[12];
 
         // ショートカットファイルのリンク先のパスを取得するメソッド
         public static string GetTargetPath(string lnkPath)
