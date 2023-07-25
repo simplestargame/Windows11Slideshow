@@ -1,10 +1,11 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using UnityEngine.Video;
 
 namespace SimplestarGame
 {
-    public class TimelineSlider : MonoBehaviour
+    public class TimelineSlider : MonoBehaviour, IPointerDownHandler, IPointerUpHandler
     {
         [SerializeField] VideoPlayer videoPlayer;
         [SerializeField] Slider sliderTimeline;
@@ -26,12 +27,12 @@ namespace SimplestarGame
             this.videoPlayer.time = value;
         }
 
-        public void OnPointerDown()
+        public void OnPointerDown(PointerEventData eventData)
         {
             this.isSeeking = true;
         }
 
-        public void OnPointerUp()
+        public void OnPointerUp(PointerEventData eventData)
         {
             this.isSeeking = false;
         }
