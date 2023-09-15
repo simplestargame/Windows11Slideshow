@@ -27,6 +27,7 @@ namespace SimplestarGame
         [SerializeField] Button windowFullscreenButton;
         [SerializeField] Toggle toggleUseAudio;
         [SerializeField] Slider sliderVolume;
+        [SerializeField] Slider sliderDelay;
         [SerializeField] Toggle toggleTopDirectoryOnly;
         [SerializeField] VideoPlayer videoPlayer;
         [SerializeField] TMPro.TextMeshProUGUI fpsText;
@@ -36,6 +37,8 @@ namespace SimplestarGame
         [SerializeField] Button quitButton;
         [SerializeField] Button skipButton;
         [SerializeField] Button backButton;
+        [SerializeField] Button pastePathButton;
+        [SerializeField] Button restartButton;
 
         void Start()
         {
@@ -58,15 +61,22 @@ namespace SimplestarGame
             this.toggleUseAudio.onValueChanged.AddListener(this.OnUseAudio);
             this.toggleTopDirectoryOnly.onValueChanged.AddListener(this.OnTopDirectoryOnly);
             this.sliderVolume.onValueChanged.AddListener(this.OnChangeVolume);
+            this.sliderDelay.onValueChanged.AddListener(this.OnChangeDelay);
             this.prevButton.onClick.AddListener(this.OnPrev);
             this.nextButton.onClick.AddListener(this.OnNext);
             this.pauseButton.onClick.AddListener(this.OnPause);
+            this.restartButton.onClick.AddListener(this.OnRestart);
             this.quitButton.onClick.AddListener(this.OnQuit);
             this.skipButton.onClick.AddListener(this.OnSkip);
             this.backButton.onClick.AddListener(this.OnBack);
+            this.pastePathButton.onClick.AddListener(this.OnPastePath);
             if (PlayerPrefs.HasKey(Slideshow.AUDIO_VOLUME))
             {
                 this.sliderVolume.value = PlayerPrefs.GetFloat(Slideshow.AUDIO_VOLUME);
+            }
+            if (PlayerPrefs.HasKey(Slideshow.VIDEO_DELAY))
+            {
+                this.sliderDelay.value = PlayerPrefs.GetFloat(Slideshow.VIDEO_DELAY);
             }
             if (PlayerPrefs.HasKey(Slideshow.SHAFFLE))
             {
@@ -92,6 +102,11 @@ namespace SimplestarGame
             this.videoPlayer.source = VideoSource.Url;
             this.videoPlayer.prepareCompleted += this.OnVideoPrepareCompleted;
             this.videoPlayer.loopPointReached += OnLoopPointReached;
+        }
+
+        void OnPastePath()
+        {
+            this.folderPath.text = ClipboardHelper.ClipboardText;
         }
 
         void OnBack()
@@ -138,6 +153,19 @@ namespace SimplestarGame
                     break;
             }
         }
+
+        void OnRestart()
+        {
+            switch (this.mode)
+            {
+                case Mode.Image:
+                    break;
+                case Mode.Video:
+                    this.ShowNextImage();
+                    break;
+            }
+        }
+
 
         void OnNext()
         {
@@ -194,6 +222,11 @@ namespace SimplestarGame
             this.videoPlayer.SetDirectAudioVolume(0, volume);
         }
 
+        void OnChangeDelay(float volume)
+        {
+            PlayerPrefs.SetFloat(Slideshow.VIDEO_DELAY, volume);
+        }
+
         void OnLoopPointReached(VideoPlayer source)
         {
             if (this.isPlay)
@@ -205,6 +238,13 @@ namespace SimplestarGame
 
         void OnVideoPrepareCompleted(VideoPlayer source)
         {
+            for (int i = 0; i < this.textures.Length; i++)
+            {
+                if (this.textures[i] != null)
+                {
+                    this.textures[i].Release();
+                }
+            }
             float scale = Screen.height / (float)source.texture.height;
             this.textures[0] = new RenderTexture(Mathf.RoundToInt(source.texture.width * scale), Mathf.RoundToInt(source.texture.height * scale), 3);
             this.textures[0].filterMode = FilterMode.Trilinear;
@@ -216,7 +256,8 @@ namespace SimplestarGame
             {
                 this.textures[i] = new RenderTexture(this.textures[0]);
             }
-            this.rawImage.texture = this.textures[this.textures.Length - 1];
+            var targetTexIndex = Mathf.FloorToInt((this.textures.Length - 1) * this.sliderDelay.value);
+            this.rawImage.texture = this.textures[targetTexIndex];
             this.rawImage.SetNativeSize();
         }
 
@@ -618,6 +659,15 @@ namespace SimplestarGame
                 }
                 this.coroutine5 = StartCoroutine(this.CoHidePauseUI());
             }
+            float restartDistance = Vector3.Distance(this.restartButton.transform.position, Input.mousePosition);
+            if (100 > restartDistance)
+            {
+                if (null != this.coroutine8)
+                {
+                    StopCoroutine(this.coroutine8);
+                }
+                this.coroutine8 = StartCoroutine(this.CoHideRestartUI());
+            }
             float skipDistance = Vector3.Distance(this.skipButton.transform.position, Input.mousePosition);
             if (100 > skipDistance)
             {
@@ -709,6 +759,13 @@ namespace SimplestarGame
             this.pauseButton.gameObject.SetActive(false);
         }
 
+        IEnumerator CoHideRestartUI()
+        {
+            this.restartButton.gameObject.SetActive(true);
+            yield return new WaitForSeconds(1f);
+            this.restartButton.gameObject.SetActive(false);
+        }
+
         IEnumerator CoHideSkipUI()
         {
             this.skipButton.gameObject.SetActive(true);
@@ -738,12 +795,15 @@ namespace SimplestarGame
             this.toggleUseAudio.gameObject.SetActive(show);
             this.toggleTopDirectoryOnly.gameObject.SetActive(show);
             this.sliderVolume.gameObject.transform.parent.gameObject.SetActive(show);
+            this.sliderDelay.gameObject.transform.parent.gameObject.SetActive(show);
             this.fpsText.gameObject.transform.parent.gameObject.SetActive(show);
             this.quitButton.gameObject.SetActive(show);
+            this.pastePathButton.gameObject.SetActive(show);
         }
 
         const string FOLDER_PATH = "folderPath";
         const string AUDIO_VOLUME = "audioVolume";
+        const string VIDEO_DELAY = "videoDelay";
         const string USE_AUDIO = "useAudio";
         const string SHAFFLE = "shaffle";
         const string TOP_DIR_ONLY = "topDirOnly";
@@ -754,6 +814,7 @@ namespace SimplestarGame
         Coroutine coroutine5 = null;
         Coroutine coroutine6 = null;
         Coroutine coroutine7 = null;
+        Coroutine coroutine8 = null;
         int[] indices;
         bool isPlay = false;
         int index = 0;
@@ -781,7 +842,7 @@ namespace SimplestarGame
         double videoPlayerTime;
         float pauseCoolDown;
 
-        RenderTexture[] textures = new RenderTexture[12];
+        RenderTexture[] textures = new RenderTexture[18];
 
         // ショートカットファイルのリンク先のパスを取得するメソッド
         public static string GetTargetPath(string lnkPath)
@@ -829,5 +890,20 @@ namespace SimplestarGame
         [ComImport]
         [Guid("00021401-0000-0000-C000-000000000046")]
         class ShellLink { }
+
+        /// <summary>
+        /// クリップボード処理
+        /// </summary>
+        public class ClipboardHelper
+        {
+            /// <summary>
+            /// クリップボードテキストの取得と設定
+            /// </summary>
+            internal static string ClipboardText
+            {
+                get { return GUIUtility.systemCopyBuffer; }
+                set { GUIUtility.systemCopyBuffer = value; }
+            }
+        }
     }
 }
